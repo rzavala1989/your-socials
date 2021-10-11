@@ -15,7 +15,7 @@ app.use(express.json({ extended: false }));
 app.use(authRoutes);
 
 const mongouri =
-  'mongodb+srv://rzavala1989:Marcel2018!@cluster0.ayefg.mongodb.net/myFirstDatabase?retryWrites=true&w=majority';
+  'mongodb+srv://rzavala1989:illmatic774@cluster0.vxxls.mongodb.net/myFirstDatabase?retryWrites=true&w=majority';
 
 mongoose.connect(mongouri);
 mongoose.connection.on('connected', () => {
