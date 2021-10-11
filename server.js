@@ -26,7 +26,10 @@ const profileRoutes = require('./api/routes/Profile');
 const userRoutes = require('./api/routes/User');
 const usersRoutes = require('./api/routes/Users');
 
-const requireAuth = require('./middlewares/requireAuth');
+const requireAuth = require('./api/middlewares/requireAuth');
+
+const mongo_uri =
+  process.env.MONGODB_URI || 'mongodb://localhost:27020/your-socials';
 
 let socketConnections = {};
 
@@ -52,21 +55,45 @@ app.use('/profile', profileRoutes);
 app.use('/user', userRoutes);
 app.use('/users', usersRoutes);
 
-const mongo_uri =
-  'mongodb+srv://rzavala1989:illmatic774@cluster0.vxxls.mongodb.net/myFirstDatabase?retryWrites=true&w=majority';
+// Connect db
 
-mongoose.connect(mongouri);
-mongoose.connection.on('connected', () => {
-  console.log('connected to mongo instance');
+mongoose.connect(mongo_uri, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  useCreateIndex: true,
 });
-mongoose.connection.on('error', (err) => {
-  console.error('error connecting to mongo', err);
+const mongoConnection = mongoose.connection;
+mongoConnection.on(
+  'error',
+  console.error.bind(console, 'MongoDB connection error:')
+);
+
+// Websockets
+
+let socketCount = 0;
+io.sockets.on('connection', (socket) => {
+  socketCount++;
+  console.log('user connected to socket', socket.id);
+  console.log(socketCount, 'total connections');
+  socket.on('authenticate', ({ token }) => {
+    try {
+      const user = jwt.verify(token, process.env.API_KEY);
+      socketConnections[user.uid] = socket.id;
+      socket.on('disconnect', () => {
+        console.log('user disconnected');
+        delete socketConnections[user.uid];
+      });
+    } catch (err) {
+      console.log(err);
+      socket.disconnect(true);
+      return;
+    }
+  });
+  socket.on('disconnect', (socket) => {
+    socketCount--;
+    console.log('user disconnected from socket', socket.id);
+    console.log(socketCount, 'total connections');
+  });
 });
 
-app.get('/', requireAuth, (req, res) => {
-  res.send(`Your email: ${req.user.email}`);
-});
-
-app.listen(3000, () => {
-  console.log('Listing to port 3000');
-});
+http.listen(PORT, () => console.log('app listening on port', PORT));
