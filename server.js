@@ -1,20 +1,39 @@
-require('./models/User');
-require('./models/Track');
+require('./api/models/User');
+require('./api/models/Post');
 
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
+const morgan = require('morgan');
+
+const app = express();
+const http = require('http').createServer(app);
+const io = require('socket.io')(http);
+const jwt = require('jsonwebtoken');
+
+const PORT = process.env.PORT || 3000;
+
 const authRoutes = require('./routes/AuthRoutes');
 const requireAuth = require('./middlewares/requireAuth');
 
-const app = express();
+let socketConnections = {};
 
 // // Use Middleware to accept data from body
-app.use(express.json({ extended: false }));
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(morgan('combined'));
+
+// Use middleware for websockets
+app.use((req, res, next) => {
+  req.io = io;
+  req.sockets = socketConnections;
+  next();
+});
 
 //Use routes
 app.use(authRoutes);
 
-const mongouri =
+const mongo_uri =
   'mongodb+srv://rzavala1989:illmatic774@cluster0.vxxls.mongodb.net/myFirstDatabase?retryWrites=true&w=majority';
 
 mongoose.connect(mongouri);
