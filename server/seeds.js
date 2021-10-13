@@ -1,15 +1,19 @@
-const db = require('./api/models')
-const axios = require('axios').default
-const pex = require('./api/utils/pexelsService')
+const User = require('./api/models/User');
+const Post = require('./api/models/Post');
+const Feed = require('./api/models/Feed');
+const FriendRequest = require('./api/models/FriendRequest');
+const Comment = require('./api/models/Comment');
+const axios = require('axios').default;
+const pex = require('./api/utils/pexelsService');
 const MONGO_URI =
-  process.env.MONGO_URI || 'mongodb://127.0.0.1/hidden-notes'
-const mongoose = require('mongoose')
+  process.env.MONGO_URI || 'mongodb://localhost:27020/your-socials';
+const mongoose = require('mongoose');
 
 mongoose.connect(MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-  useCreateIndex: true
-})
+  useCreateIndex: true,
+});
 
 const users = [
   'alex',
@@ -34,168 +38,167 @@ const users = [
   'william',
   'wilson',
   'jeff',
-  'robert'
-]
-const dbUsers = []
-const dbFeeds = []
+  'robert',
+];
+const dbUsers = [];
+const dbFeeds = [];
 
 async function getPosts() {
-  const res = await axios.get('http://jsonplaceholder.typicode.com/posts')
-  return res.data
+  const res = await axios.get('http://jsonplaceholder.typicode.com/posts');
+  return res.data;
 }
 
 async function getComments() {
   const res = await axios.get(
     'http://jsonplaceholder.typicode.com/posts/1/comments'
-  )
-  return res.data
+  );
+  return res.data;
 }
 
 const centralLocation = {
   latitude: 43.70011,
-  longitude: -79.4163
-}
+  longitude: -79.4163,
+};
 
 async function seedReplies(post, comments) {
   if (Math.random() < 0.9) {
-    return null
+    return null;
   } else {
-    const numOfComments = Math.floor(Math.random() * 10)
+    const numOfComments = Math.floor(Math.random() * 10);
     for await (let [i, commentObj] of comments.entries()) {
       if (i <= numOfComments) {
-        console.log('creating comment', i, 'on post', post._id)
-        const likes = []
-        const user = dbUsers[Math.floor(Math.random() * dbUsers.length)]
-        const likeChance = Math.random()
+        console.log('creating comment', i, 'on post', post._id);
+        const likes = [];
+        const user = dbUsers[Math.floor(Math.random() * dbUsers.length)];
+        const likeChance = Math.random();
         for (let dbUser of dbUsers) {
           if (Math.random() < likeChance) {
-            likes.push(dbUser._id)
+            likes.push(dbUser._id);
           }
         }
-        const newComment = await db.Post.create({
+        const newComment = await Post.create({
           user,
           likes,
           body: comments[Math.floor(Math.random() * comments.length)].body,
           parent: post._id,
-          feed: post.feed
-        })
-        await db.Post.findByIdAndUpdate(post._id, {
-          $push: { comments: newComment._id }
-        })
-        await seedReplies(newComment, comments)
+          feed: post.feed,
+        });
+        await Post.findByIdAndUpdate(post._id, {
+          $push: { comments: newComment._id },
+        });
+        await seedReplies(newComment, comments);
       }
     }
   }
 }
 
 async function seedComments(feed, comments) {
-  const numberOfComments = Math.round(Math.random() * 10)
+  const numberOfComments = Math.round(Math.random() * 10);
   for await (let [i, comment] of comments.entries()) {
     if (i <= numberOfComments) {
       // find which users will comment
-      const likes = []
-      const likeChance = Math.random()
+      const likes = [];
+      const likeChance = Math.random();
       for (let dbUser of dbUsers) {
         if (Math.random() < likeChance) {
-          likes.push(dbUser._id)
+          likes.push(dbUser._id);
         }
       }
-      const user = dbUsers[Math.floor(Math.random() * dbUsers.length)]
-      const post = await db.Post.create({
+      const user = dbUsers[Math.floor(Math.random() * dbUsers.length)];
+      const post = await Post.create({
         user: user.id,
         body: comment.body,
         parent: null,
         feed: feed.id,
-        likes
-      })
-      console.log('creating post', post.id, 'on feed', feed._id)
-      const updatedFeed = await db.Feed.findByIdAndUpdate(feed._id, {
-        $push: { posts: post.id }
-      })
-      await seedReplies(post, comments)
+        likes,
+      });
+      console.log('creating post', post.id, 'on feed', feed._id);
+      const updatedFeed = await Feed.findByIdAndUpdate(feed._id, {
+        $push: { posts: post.id },
+      });
+      await seedReplies(post, comments);
     } else {
-      break
+      break;
     }
   }
 }
 
 async function seedFriends(user) {
   for await (dbUser of dbUsers) {
-    if (user.friends.includes(dbUser._id) || user._id === dbUser._id)
-      continue
+    if (user.friends.includes(dbUser._id) || user._id === dbUser._id) continue;
     // roll
     else if (Math.random() < 0.3) {
-      console.log('creating friends', user._id, dbUser._id)
-      await db.User.findOneAndUpdate(
+      console.log('creating friends', user._id, dbUser._id);
+      await User.findOneAndUpdate(
         { _id: user._id },
         { $push: { friends: dbUser._id } }
-      )
-      await db.User.findOneAndUpdate(
+      );
+      await User.findOneAndUpdate(
         { _id: dbUser._id },
         { $push: { friends: user._id } }
-      )
+      );
     } else {
-      const exists = await db.FriendRequest.exists({
+      const exists = await FriendRequest.exists({
         $or: [
           { from: user._id },
           { to: dbUser._id },
           { from: dbUser._id },
-          { to: user._id }
-        ]
-      })
+          { to: user._id },
+        ],
+      });
       if (!exists) {
-        const friendRequest = await db.FriendRequest.create({
+        const friendRequest = await FriendRequest.create({
           from: user._id,
           to: dbUser._id,
-          closed: false
-        })
-        console.log('creating friend request', friendRequest._id)
+          closed: false,
+        });
+        console.log('creating friend request', friendRequest._id);
       }
     }
   }
 }
 
 async function seedDb() {
-  await db.User.deleteMany({})
-  await db.Post.deleteMany({})
-  await db.Feed.deleteMany({})
+  await User.deleteMany({});
+  await Post.deleteMany({});
+  await Feed.deleteMany({});
 
   for await (let user of users) {
-    const dbUser = await db.User.create({
+    const dbUser = await User.create({
       username: user,
       email: `${user}@${user}.com`,
       password: user,
-      friends: []
-    })
-    dbUsers.push(dbUser)
+      friends: [],
+    });
+    dbUsers.push(dbUser);
   }
   for await (let user of dbUsers) {
-    await seedFriends(user)
+    await seedFriends(user);
   }
-  const posts = await getPosts()
-  const comments = await getComments()
+  const posts = await getPosts();
+  const comments = await getComments();
 
   for await (let [i, post] of posts.entries()) {
     // get random user
-    const user = dbUsers[Math.floor(Math.random() * dbUsers.length)]
-    const feed = await db.Feed.create({
+    const user = dbUsers[Math.floor(Math.random() * dbUsers.length)];
+    const feed = await Feed.create({
       user: user.id,
       title: post.title,
       description: post.body,
       location: {
         latitude: centralLocation.latitude + (Math.random() - 0.5) * 0.05,
-        longitude: centralLocation.longitude + (Math.random() - 0.5) * 0.05
+        longitude: centralLocation.longitude + (Math.random() - 0.5) * 0.05,
       },
       audience: 'public',
-      thumbnail: `https://loremflickr.com/128/128?lock=${i}`
-    })
-    console.log('creating feed', feed._id)
-    await seedComments(feed, comments)
-    dbFeeds.push(feed)
+      thumbnail: `https://loremflickr.com/128/128?lock=${i}`,
+    });
+    console.log('creating feed', feed._id);
+    await seedComments(feed, comments);
+    dbFeeds.push(feed);
     // calculate odds of having comment
   }
 }
 seedDb().then(() => {
-  console.log('finished seeding db.')
-  mongoose.connection.close()
-})
+  console.log('finished seeding db');
+  mongoose.connection.close();
+});
