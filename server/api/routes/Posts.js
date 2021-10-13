@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const Post = require('../models/Post');
+const User = require('../models/User');
 const requireAuth = require('../middlewares/requireAuth');
 
 // get users posts
@@ -37,6 +38,29 @@ router.post('/', requireAuth, async (req, res) => {
     console.log(err);
     res.status(500).end();
   }
+});
+
+//delete post
+router.delete('/:id', requireAuth, (req, res) => {
+  User.findOne({ user: req.user.uid }).then((user) => {
+    Post.findById(req.params.id)
+      .then((post) => {
+        //Delete
+        post.remove().then(() => res.json({ success: true }));
+      })
+      .catch((err) => res.status(404).json({ postnotfound: 'No post found' }));
+  });
+});
+
+//edit post
+router.put('/:id', requireAuth, (req, res) => {
+  User.findOne({ user: req.user.uid }).then((user) => {
+    Post.findByIdAndUpdate(req.params.id, req.body)
+      .then((post) => res.json({ msg: 'Updated successfully' }))
+      .catch((err) =>
+        res.status(400).json({ error: 'Unable to update the Database' })
+      );
+  });
 });
 
 // get post with comments

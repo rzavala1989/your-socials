@@ -6,7 +6,7 @@ const Comment = require('./api/models/Comment');
 const axios = require('axios').default;
 const pex = require('./api/utils/pexelsService');
 const MONGO_URI =
-  process.env.MONGO_URI || 'mongodb://localhost:27020/your-socials';
+  process.env.MONGO_URI || 'mongodb://localhost:27017/your-socials';
 const mongoose = require('mongoose');
 
 mongoose.connect(MONGO_URI, {

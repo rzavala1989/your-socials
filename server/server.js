@@ -29,7 +29,7 @@ const usersRoutes = require('./api/routes/Users');
 const requireAuth = require('./api/middlewares/requireAuth');
 
 const mongo_uri =
-  process.env.MONGODB_URI || 'mongodb://localhost:27020/your-socials';
+  process.env.MONGODB_URI || 'mongodb://localhost:27017/your-socials';
 
 let socketConnections = {};
 
@@ -57,11 +57,15 @@ app.use('/users', usersRoutes);
 
 // Connect db
 
-mongoose.connect(mongo_uri, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  useCreateIndex: true,
-});
+mongoose
+  .connect(mongo_uri, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    useCreateIndex: true,
+  })
+  .then(() => {
+    console.log('mongo connected');
+  });
 const mongoConnection = mongoose.connection;
 mongoConnection.on(
   'error',
